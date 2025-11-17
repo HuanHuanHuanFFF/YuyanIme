@@ -1,11 +1,13 @@
 plugins {
     id 'com.android.application'
-    id 'kotlin-android'
+    // 用新的 Kotlin 插件 ID
+    id 'org.jetbrains.kotlin.android'
 }
 
 android {
     compileSdk 36
     namespace 'com.yuyan'
+
     defaultConfig {
         applicationId "com.yuyan.pinyin"
         minSdk 23
@@ -28,13 +30,14 @@ android {
             abortOnError false
         }
     }
-    
+
     packagingOptions {
         jniLibs {
             useLegacyPackaging true
         }
     }
 
+    // 签名配置：只有在 keystore.properties 存在时才真正读取
     signingConfigs {
         release {
             def keystoreFile = rootProject.file("keystore/keystore.properties")
@@ -51,16 +54,16 @@ android {
         }
     }
 
-    //多渠道打包
+    // 多渠道打包
     flavorDimensions = ["default"]
     productFlavors {
         online {
             dimension "default"
-            applicationIdSuffix  ".online"
+            applicationIdSuffix ".online"
         }
         offline {
             dimension "default"
-            applicationIdSuffix  ".offline"
+            applicationIdSuffix ".offline"
         }
     }
 
@@ -69,25 +72,38 @@ android {
             // 混淆
             minifyEnabled true
             shrinkResources true
-            applicationIdSuffix  ".release"
+            applicationIdSuffix ".release"
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard.cfg'
-            signingConfig signingConfigs.release
+
+            // 只有在 keystore.properties 存在时才使用自定义 release 签名
+            if (rootProject.file("keystore/keystore.properties").exists()) {
+                signingConfig signingConfigs.release
+            }
+            // 否则就用默认的 debug keystore（方便你本地打包测试）
         }
 
         debug {
             applicationIdSuffix ".debug"
-            signingConfig signingConfigs.release
+            // debug 不再使用 release 签名，避免 storeFile 为空
+            // 使用 Android 默认的 debug 签名即可
+            // signingConfig signingConfigs.release
         }
+    }
 
-    }
-    //    第三方库使用java1.8
+    // Java 使用 17
     compileOptions {
-        sourceCompatibility 17
-        targetCompatibility 17
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
+
+    // Kotlin 也统一 17，避免 17 vs 21
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
     android.applicationVariants.configureEach { variant ->
         variant.outputs.configureEach {
-            outputFileName = "yuyanIme_${versionCodeDate()}_${variant.getProductFlavors()[0].name}_${variant.buildType.name}.apk"   // offline      online
+            outputFileName = "yuyanIme_${versionCodeDate()}_${variant.getProductFlavors()[0].name}_${variant.buildType.name}.apk"
         }
     }
 }
@@ -103,4 +119,9 @@ static def versionNameDate() {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation project(':yuyansdk')
+}
+
+// Kotlin 使用 JDK 17 的 toolchain，避免默认跑到 21
+kotlin {
+    jvmToolchain(17)
 }
